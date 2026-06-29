@@ -1,13 +1,10 @@
-const { Notification } = require('../models');
+const NotificationService = require('../services/notification.service');
 
 const notificationController = {
   getAll: async (req, res) => {
     try {
-      const data = await Notification.findAll({
-        where: { user_id: req.user.id },
-        order: [['created_at', 'DESC']],
-        limit: 50,
-      });
+      // req.user.id vient du middleware d'authentification
+      const data = await NotificationService.getUserNotifications(req.user.id);
       res.json({ success: true, data });
     } catch (err) {
       console.error('getAll notifications error:', err);
@@ -17,24 +14,20 @@ const notificationController = {
 
   markRead: async (req, res) => {
     try {
-      await Notification.update(
-        { is_read: true },
-        { where: { id: req.params.id, user_id: req.user.id } }
-      );
-      res.json({ success: true });
+      await NotificationService.markAsRead(req.params.id, req.user.id);
+      res.json({ success: true, message: 'Notification marquée comme lue' });
     } catch (err) {
+      console.error('markRead error:', err);
       res.status(500).json({ success: false, message: 'Erreur serveur' });
     }
   },
 
   markAllRead: async (req, res) => {
     try {
-      await Notification.update(
-        { is_read: true },
-        { where: { user_id: req.user.id } }
-      );
-      res.json({ success: true });
+      await NotificationService.markAllAsRead(req.user.id);
+      res.json({ success: true, message: 'Toutes les notifications ont été marquées comme lues' });
     } catch (err) {
+      console.error('markAllRead error:', err);
       res.status(500).json({ success: false, message: 'Erreur serveur' });
     }
   },

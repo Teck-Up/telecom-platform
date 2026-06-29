@@ -7,3 +7,15 @@ __pycache__/
 .DS_Store
 dist/
 build/
+# Python Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE Settings (JetBrains / WebStorm)
+.idea/
+
+# Local data from AI service
+ai-service/data/models/*.json
+ai-service/data/logs/

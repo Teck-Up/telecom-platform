@@ -1,13 +1,9 @@
-const bcrypt = require('bcrypt');
-const { User } = require('../models');
+const UserService = require('../services/user.service');
 
 const userController = {
   getAll: async (req, res) => {
     try {
-      const data = await User.findAll({
-        attributes: { exclude: ['password'] },
-        order: [['created_at', 'DESC']],
-      });
+      const data = await UserService.getAllUsers();
       res.json({ success: true, data });
     } catch (err) {
       console.error('getAll users error:', err);
@@ -17,19 +13,23 @@ const userController = {
 
   getMe: async (req, res) => {
     try {
-      const user = await User.findByPk(req.user.id, {
-        attributes: { exclude: ['password'] },
-      });
+      // req.user.id vient du middleware authenticate
+      const user = await UserService.getUserById(req.user.id);
       res.json({ success: true, data: user });
     } catch (err) {
+      if (err.statusCode) {
+        return res.status(err.statusCode).json({ success: false, message: err.message });
+      }
       res.status(500).json({ success: false, message: 'Erreur serveur' });
     }
   },
 
   update: async (req, res) => {
     try {
+      // Idéalement, on utiliserait ici le UpdateUserDTO via le middleware validateDto
       const { name, role, is_active } = req.body;
-      await User.update({ name, role, is_active }, { where: { id: req.params.id } });
+
+      await UserService.updateUser(req.params.id, { name, role, is_active });
       res.json({ success: true, message: 'Utilisateur mis à jour' });
     } catch (err) {
       console.error('update user error:', err);
@@ -39,17 +39,13 @@ const userController = {
 
   updatePassword: async (req, res) => {
     try {
-      if (req.user.role !== 'admin' && req.user.id !== Number(req.params.id))
-        return res.status(403).json({ success: false, message: 'Accès refusé' });
-
-      const { password } = req.body;
-      if (!password)
-        return res.status(400).json({ success: false, message: 'Mot de passe requis' });
-
-      const hashed = await bcrypt.hash(password, 10);
-      await User.update({ password: hashed }, { where: { id: req.params.id } });
+      // On passe l'ID cible, l'utilisateur qui fait la requête (req.user), et le nouveau mot de passe
+      await UserService.updatePassword(req.params.id, req.user, req.body.password);
       res.json({ success: true, message: 'Mot de passe mis à jour' });
     } catch (err) {
+      if (err.statusCode) {
+        return res.status(err.statusCode).json({ success: false, message: err.message });
+      }
       console.error('updatePassword error:', err);
       res.status(500).json({ success: false, message: 'Erreur serveur' });
     }
