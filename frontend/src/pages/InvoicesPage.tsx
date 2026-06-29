@@ -1,33 +1,33 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import api from '../services/api'
 import toast from 'react-hot-toast'
-import { Plus, Download, Search } from 'lucide-react'
-
-const STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-gray-100 text-gray-700',
-  sent: 'bg-blue-100 text-blue-700',
-  partially_paid: 'bg-yellow-100 text-yellow-700',
-  paid: 'bg-green-100 text-green-700',
-  overdue: 'bg-red-100 text-red-700',
-  cancelled: 'bg-gray-100 text-gray-400',
-}
-const STATUS_LABELS: Record<string, string> = {
-  draft: 'Brouillon', sent: 'Envoyée', partially_paid: 'Partiel', paid: 'Payée', overdue: 'En retard', cancelled: 'Annulée'
-}
+import { Plus, Download, Search, ChevronRight } from 'lucide-react'
+import type { InvoiceListRow } from '../types/invoice'
+import type { ApiResponse } from '../types/api'
+import { INVOICE_STATUS_COLORS, INVOICE_STATUS_LABELS } from '../constants/labels'
+import { fmtCurrency } from '../utils/format'
+import { useAuthStore } from '../store/authStore'
 
 export default function InvoicesPage() {
-  const [invoices, setInvoices] = useState<any[]>([])
-  const [clients, setClients] = useState<any[]>([])
+  const [invoices, setInvoices] = useState<InvoiceListRow[]>([])
+  const { user } = useAuthStore()
+  const isStaff = user && ['admin', 'billing_agent', 'recovery_agent'].includes(user.role)
+  const [clients, setClients] = useState<{ id: number; name: string | null; company_name: string | null }[]>([])
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState({ client_id: '', due_date: '', description: '', tva_rate: 20 })
   const [items, setItems] = useState([{ description: '', quantity: 1, unit_price: 0 }])
 
-  const load = () => api.get('/invoices', { params: { search, status } }).then(r => setInvoices(r.data.data))
+  const load = () =>
+    api.get<ApiResponse<InvoiceListRow[]>>('/invoices', { params: { search, status } })
+      .then(r => setInvoices(r.data.data))
 
   useEffect(() => { load() }, [search, status])
-  useEffect(() => { api.get('/clients').then(r => setClients(r.data.data)) }, [])
+  useEffect(() => {
+    if (isStaff) api.get('/clients').then(r => setClients(r.data.data))
+  }, [isStaff])
 
   const addItem = () => setItems([...items, { description: '', quantity: 1, unit_price: 0 }])
   const updateItem = (i: number, field: string, value: any) => {
@@ -54,16 +54,18 @@ export default function InvoicesPage() {
     URL.revokeObjectURL(url)
   }
 
-  const fmt = (n: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n)
+  const fmt = fmtCurrency
   const total = items.reduce((s, i) => s + i.quantity * i.unit_price, 0)
 
   return (
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Factures</h1>
+        {isStaff && (
         <button onClick={() => setShowModal(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
           <Plus size={16} /> Nouvelle facture
         </button>
+        )}
       </div>
 
       <div className="flex gap-3">
@@ -76,7 +78,7 @@ export default function InvoicesPage() {
         <select value={status} onChange={e => setStatus(e.target.value)}
           className="px-3 py-2.5 border border-gray-300 rounded-lg text-sm outline-none">
           <option value="">Tous les statuts</option>
-          {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          {Object.entries(INVOICE_STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
       </div>
 
@@ -91,12 +93,17 @@ export default function InvoicesPage() {
               <th className="px-4 py-3 text-left">Échéance</th>
               <th className="px-4 py-3 text-left">Statut</th>
               <th className="px-4 py-3 text-center">PDF</th>
+              <th className="px-4 py-3 w-10" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {invoices.map(inv => (
-              <tr key={inv.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 font-mono text-blue-600">{inv.invoice_number}</td>
+              <tr key={inv.id} className="hover:bg-slate-50 group">
+                <td className="px-4 py-3">
+                  <Link to={`/invoices/${inv.id}`} className="font-mono text-blue-600 hover:underline">
+                    {inv.invoice_number}
+                  </Link>
+                </td>
                 <td className="px-4 py-3">
                   <div>{inv.client_name}</div>
                   <div className="text-gray-400 text-xs">{inv.company_name}</div>
@@ -105,8 +112,8 @@ export default function InvoicesPage() {
                 <td className="px-4 py-3 text-right text-green-600">{fmt(inv.amount_paid)}</td>
                 <td className="px-4 py-3 text-gray-500">{new Date(inv.due_date).toLocaleDateString('fr-FR')}</td>
                 <td className="px-4 py-3">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[inv.status]}`}>
-                    {STATUS_LABELS[inv.status]}
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${INVOICE_STATUS_COLORS[inv.status]}`}>
+                    {INVOICE_STATUS_LABELS[inv.status]}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-center">
@@ -114,6 +121,11 @@ export default function InvoicesPage() {
                     className="p-1.5 text-gray-400 hover:text-blue-600 rounded transition">
                     <Download size={15} />
                   </button>
+                </td>
+                <td className="px-4 py-3">
+                  <Link to={`/invoices/${inv.id}`} className="text-gray-400 hover:text-blue-600">
+                    <ChevronRight size={18} />
+                  </Link>
                 </td>
               </tr>
             ))}

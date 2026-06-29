@@ -4,7 +4,7 @@ const { Sequelize } = require('sequelize');
 const sequelize = new Sequelize(
   process.env.DB_NAME || 'telecom_platform',
   process.env.DB_USER || 'telecom_user',
-  process.env.DB_PASSWORD || 'telecom_pass',
+  process.env.DB_PASSWORD ,
   {
     host: process.env.DB_HOST || 'localhost',
     port: process.env.DB_PORT || 3306,
@@ -26,14 +26,19 @@ const Invoice      = require('./Invoice')(sequelize);
 const InvoiceItem  = require('./InvoiceItem')(sequelize);
 const Payment      = require('./Payment')(sequelize);
 const RecoveryCase = require('./RecoveryCase')(sequelize);
-const Reminder     = require('./Reminder')(sequelize);
-const Notification = require('./Notification')(sequelize);
+const Reminder             = require('./Reminder')(sequelize);
+const RecoveryInteraction  = require('./RecoveryInteraction')(sequelize);
+const Notification         = require('./Notification')(sequelize);
 
 // ─── Associations ─────────────────────────────────────────────────────────────
 
 // User <-> Client (1 user = 1 client)
 User.hasOne(Client, { foreignKey: 'user_id', as: 'client' });
 Client.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
+// Account manager (staff user) -> Clients
+User.hasMany(Client, { foreignKey: 'account_manager_id', as: 'managedClients' });
+Client.belongsTo(User, { foreignKey: 'account_manager_id', as: 'accountManager' });
 
 // Client -> Invoices
 Client.hasMany(Invoice, { foreignKey: 'client_id', as: 'invoices' });
@@ -74,6 +79,12 @@ RecoveryCase.belongsTo(User, { foreignKey: 'recovery_agent_id', as: 'agent' });
 // RecoveryCase -> Reminders
 RecoveryCase.hasMany(Reminder, { foreignKey: 'recovery_case_id', as: 'reminders' });
 Reminder.belongsTo(RecoveryCase, { foreignKey: 'recovery_case_id', as: 'recoveryCase' });
+Reminder.belongsTo(User, { foreignKey: 'created_by', as: 'author' });
+
+// RecoveryCase -> Interactions
+RecoveryCase.hasMany(RecoveryInteraction, { foreignKey: 'recovery_case_id', as: 'interactions' });
+RecoveryInteraction.belongsTo(RecoveryCase, { foreignKey: 'recovery_case_id', as: 'recoveryCase' });
+RecoveryInteraction.belongsTo(User, { foreignKey: 'created_by', as: 'author' });
 
 // User -> Notifications
 User.hasMany(Notification, { foreignKey: 'user_id', as: 'notifications' });
@@ -89,5 +100,6 @@ module.exports = {
   Payment,
   RecoveryCase,
   Reminder,
+  RecoveryInteraction,
   Notification,
 };

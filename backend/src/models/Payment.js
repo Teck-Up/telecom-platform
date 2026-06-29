@@ -14,6 +14,15 @@ module.exports = (sequelize) => {
     reference: { type: DataTypes.STRING(255) },
     notes: { type: DataTypes.TEXT },
     recorded_by: { type: DataTypes.INTEGER },
+    status: {
+      type: DataTypes.ENUM('success', 'pending', 'failed'),
+      defaultValue: 'success',
+    },
+    bank_name: { type: DataTypes.STRING(100) },
+    bank_agency: { type: DataTypes.STRING(255) },
+    issuer_name: { type: DataTypes.STRING(255) },
+    account_rib: { type: DataTypes.STRING(30) },
+    maturity_date: { type: DataTypes.DATEONLY },
   }, {
     tableName: 'payments',
     timestamps: true,

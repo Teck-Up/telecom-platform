@@ -5,7 +5,10 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "db:init": "node scripts/init-db.js",
+    "db:clean": "node scripts/clean-seed-data.js",
+    "db:migrate": "node scripts/migrate.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

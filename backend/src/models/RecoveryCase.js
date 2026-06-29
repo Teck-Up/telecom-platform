@@ -15,6 +15,7 @@ module.exports = (sequelize) => {
       defaultValue: 'medium',
     },
     overdue_amount: { type: DataTypes.DECIMAL(15, 2), allowNull: false },
+    penalty_amount: { type: DataTypes.DECIMAL(15, 2), defaultValue: 0 },
     overdue_days: { type: DataTypes.INTEGER, defaultValue: 0 },
     notes: { type: DataTypes.TEXT },
     resolved_at: { type: DataTypes.DATE },

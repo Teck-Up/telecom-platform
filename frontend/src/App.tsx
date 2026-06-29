@@ -5,9 +5,13 @@ import LoginPage from './pages/LoginPage'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import ClientsPage from './pages/ClientsPage'
+import ClientProfilePage from './pages/ClientProfilePage'
 import InvoicesPage from './pages/InvoicesPage'
+import InvoiceDetailPage from './pages/InvoiceDetailPage'
 import PaymentsPage from './pages/PaymentsPage'
+import PaymentDetailPage from './pages/PaymentDetailPage'
 import RecoveryPage from './pages/RecoveryPage'
+import RecoveryWorkspacePage from './pages/RecoveryWorkspacePage'
 import UsersPage from './pages/UsersPage'
 import ClientPortal from './pages/ClientPortal'
 import ChatbotPage from './pages/ChatbotPage'
@@ -38,15 +42,31 @@ export default function App() {
               <ClientsPage />
             </PrivateRoute>
           } />
+          <Route path="clients/:id" element={
+            <PrivateRoute roles={['admin', 'billing_agent', 'recovery_agent']}>
+              <ClientProfilePage />
+            </PrivateRoute>
+          } />
           <Route path="invoices" element={<InvoicesPage />} />
+          <Route path="invoices/:id" element={<InvoiceDetailPage />} />
           <Route path="payments" element={
             <PrivateRoute roles={['admin', 'billing_agent', 'recovery_agent']}>
               <PaymentsPage />
             </PrivateRoute>
           } />
+          <Route path="payments/:id" element={
+            <PrivateRoute roles={['admin', 'billing_agent', 'recovery_agent']}>
+              <PaymentDetailPage />
+            </PrivateRoute>
+          } />
           <Route path="recovery" element={
             <PrivateRoute roles={['admin', 'recovery_agent']}>
               <RecoveryPage />
+            </PrivateRoute>
+          } />
+          <Route path="recovery/:id" element={
+            <PrivateRoute roles={['admin', 'recovery_agent']}>
+              <RecoveryWorkspacePage />
             </PrivateRoute>
           } />
           <Route path="users" element={

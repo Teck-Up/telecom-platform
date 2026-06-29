@@ -78,7 +78,7 @@ export default function ChatbotPage() {
               <Send size={16} />
             </button>
           </div>
-          <p className="text-xs text-gray-400 mt-2">Questions suggérées: "Quelles sont mes factures impayées ?" · "Comment contacter le support ?" · "Comment payer ma facture ?"</p>
+          <p className="text-xs text-gray-400 mt-2">Questions suggérées: &quot;Quelle est la dernière facture ?&quot; · &quot;Combien on a facturé aujourd&apos;hui ?&quot; · &quot;Combien de clients actifs ?&quot; · &quot;Quel est le montant des impayés ?&quot;</p>
         </div>
       </div>
     </div>

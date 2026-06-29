@@ -1,26 +1,21 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import api from '../services/api'
 import toast from 'react-hot-toast'
-import { Plus, Send } from 'lucide-react'
-
-const PRIORITY_COLORS: Record<string, string> = {
-  low: 'bg-gray-100 text-gray-700', medium: 'bg-yellow-100 text-yellow-700',
-  high: 'bg-orange-100 text-orange-700', critical: 'bg-red-100 text-red-700'
-}
-const STATUS_COLORS: Record<string, string> = {
-  open: 'bg-blue-100 text-blue-700', in_progress: 'bg-yellow-100 text-yellow-700',
-  resolved: 'bg-green-100 text-green-700', legal: 'bg-red-100 text-red-700', closed: 'bg-gray-100 text-gray-500'
-}
+import { Plus, ChevronRight } from 'lucide-react'
+import type { ApiResponse } from '../types/api'
+import type { RecoveryListRow } from '../types/recovery'
+import { PRIORITY_COLORS, PRIORITY_LABELS, RECOVERY_STATUS_COLORS } from '../constants/labels'
+import { fmtCurrency } from '../utils/format'
 
 export default function RecoveryPage() {
-  const [cases, setCases] = useState<any[]>([])
+  const [cases, setCases] = useState<RecoveryListRow[]>([])
   const [invoices, setInvoices] = useState<any[]>([])
   const [showCreate, setShowCreate] = useState(false)
-  const [selectedCase, setSelectedCase] = useState<any>(null)
   const [form, setForm] = useState({ client_id: '', invoice_id: '', priority: 'medium', notes: '' })
-  const [reminderType, setReminderType] = useState('email')
 
-  const load = () => api.get('/recovery').then(r => setCases(r.data.data))
+  const load = () =>
+    api.get<ApiResponse<RecoveryListRow[]>>('/recovery').then(r => setCases(r.data.data))
   useEffect(() => { load() }, [])
   useEffect(() => { api.get('/invoices', { params: { status: 'overdue' } }).then(r => setInvoices(r.data.data)) }, [])
 
@@ -29,14 +24,12 @@ export default function RecoveryPage() {
     try {
       await api.post('/recovery', form)
       toast.success('Dossier créé'); setShowCreate(false); load()
-    } catch (err: any) { toast.error(err.response?.data?.message || 'Erreur') }
-  }
-
-  const handleReminder = async (caseId: number) => {
-    try {
-      await api.post(`/recovery/${caseId}/reminders`, { type: reminderType })
-      toast.success('Relance envoyée')
-    } catch { toast.error('Erreur') }
+    } catch (err: unknown) {
+      const message = err && typeof err === 'object' && 'response' in err
+        ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+        : undefined
+      toast.error(message || 'Erreur')
+    }
   }
 
   const updateStatus = async (id: number, status: string) => {
@@ -46,7 +39,7 @@ export default function RecoveryPage() {
     } catch { toast.error('Erreur') }
   }
 
-  const fmt = (n: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n)
+  const fmt = fmtCurrency
 
   return (
     <div className="p-6 space-y-5">
@@ -67,15 +60,17 @@ export default function RecoveryPage() {
               <th className="px-4 py-3 text-right">Jours retard</th>
               <th className="px-4 py-3 text-left">Priorité</th>
               <th className="px-4 py-3 text-left">Statut</th>
-              <th className="px-4 py-3 text-center">Actions</th>
+              <th className="px-4 py-3 w-10" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {cases.map(c => (
-              <tr key={c.id} className="hover:bg-gray-50">
+              <tr key={c.id} className="hover:bg-slate-50 group">
                 <td className="px-4 py-3">
-                  <div className="font-medium">{c.client_name}</div>
-                  <div className="text-gray-400 text-xs">{c.company_name}</div>
+                  <Link to={`/recovery/${c.id}`} className="block">
+                    <div className="font-medium text-blue-600 group-hover:underline">{c.client_name}</div>
+                    <div className="text-gray-400 text-xs">{c.company_name}</div>
+                  </Link>
                 </td>
                 <td className="px-4 py-3 font-mono text-blue-600">{c.invoice_number}</td>
                 <td className="px-4 py-3 text-right font-semibold text-red-600">{fmt(c.overdue_amount)}</td>
@@ -85,17 +80,16 @@ export default function RecoveryPage() {
                 </td>
                 <td className="px-4 py-3">
                   <select value={c.status} onChange={e => updateStatus(c.id, e.target.value)}
-                    className={`text-xs rounded-full px-2 py-0.5 border-0 outline-none cursor-pointer font-medium ${STATUS_COLORS[c.status]}`}>
+                    className={`text-xs rounded-full px-2 py-0.5 border-0 outline-none cursor-pointer font-medium ${RECOVERY_STATUS_COLORS[c.status]}`}>
                     {['open', 'in_progress', 'resolved', 'legal', 'closed'].map(s =>
                       <option key={s} value={s}>{s.replace('_', ' ')}</option>
                     )}
                   </select>
                 </td>
-                <td className="px-4 py-3 text-center">
-                  <button onClick={() => handleReminder(c.id)}
-                    className="p-1.5 text-gray-400 hover:text-blue-600 rounded transition" title="Envoyer une relance">
-                    <Send size={15} />
-                  </button>
+                <td className="px-4 py-3">
+                  <Link to={`/recovery/${c.id}`} className="text-gray-400 hover:text-blue-600">
+                    <ChevronRight size={18} />
+                  </Link>
                 </td>
               </tr>
             ))}
