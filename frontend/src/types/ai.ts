@@ -1,5 +1,18 @@
 import type { PaymentMethod } from './client'
 
+export interface CAPredictionPoint {
+  month: string
+  predicted_ca: number
+}
+
+export interface CAPredictionResponse {
+  predictions: CAPredictionPoint[]
+  trend: 'hausse' | 'baisse'
+  trend_percentage: number
+  model: string
+  historical_points: number
+}
+
 export interface PaymentDocumentMetadata {
   bank_name?: string | null
   bank_agency?: string | null

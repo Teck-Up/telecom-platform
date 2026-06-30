@@ -1,14 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend,
+  PieChart, Pie, Cell, Legend, Line, ComposedChart,
 } from 'recharts'
 import api from '../services/api'
+import { predictCA } from '../services/ai'
 import type { DashboardStats } from '../types/dashboard'
+import type { CAPredictionResponse } from '../types/ai'
 import {
-  TrendingUp, Users, FileText, AlertTriangle, Calendar, Wallet,
-  Shield, ChevronRight,
+  TrendingUp, TrendingDown, Users, FileText, AlertTriangle, Calendar, Wallet,
+  Shield, ChevronRight, Sparkles,
 } from 'lucide-react'
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
@@ -18,13 +20,60 @@ const STATUS_LABELS: Record<string, string> = {
 
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [prediction, setPrediction] = useState<CAPredictionResponse | null>(null)
+  const [predictionError, setPredictionError] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     api.get<{ success: boolean; data: DashboardStats }>('/dashboard/stats')
-      .then(r => { setStats(r.data.data); setLoading(false) })
+      .then(async (r) => {
+        const data = r.data.data
+        setStats(data)
+        setLoading(false)
+
+        const historical = (data.monthlyCA || [])
+          .filter((row) => row.ca > 0)
+          .map((row) => ({ month: row.month, ca: row.ca }))
+
+        try {
+          const result = await predictCA(historical.length >= 3 ? historical : data.monthlyCA.map((row) => ({
+            month: row.month,
+            ca: row.ca,
+          })))
+          setPrediction(result)
+        } catch {
+          setPredictionError(true)
+        }
+      })
       .catch(() => setLoading(false))
   }, [])
+
+  const caForecastChart = useMemo(() => {
+    const historical = stats?.monthlyCA || []
+    const future = prediction?.predictions || []
+    const lastHistoricalMonth = historical[historical.length - 1]?.month
+
+    const rows = historical.map((row) => ({
+      month: row.month,
+      actual: row.ca,
+      predicted: null as number | null,
+    }))
+
+    if (future.length > 0 && lastHistoricalMonth) {
+      const bridge = rows.find((r) => r.month === lastHistoricalMonth)
+      if (bridge) bridge.predicted = bridge.actual
+    }
+
+    for (const point of future) {
+      rows.push({
+        month: point.month,
+        actual: null,
+        predicted: point.predicted_ca,
+      })
+    }
+
+    return rows
+  }, [stats?.monthlyCA, prediction])
 
   if (loading) {
     return (
@@ -132,6 +181,63 @@ export default function Dashboard() {
             </PieChart>
           </ResponsiveContainer>
         </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+          <div>
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Sparkles size={20} className="text-violet-600" />
+              Prévisions CA — 6 prochains mois
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Régression polynomiale sur l&apos;historique de facturation
+            </p>
+          </div>
+          {prediction && (
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${
+              prediction.trend === 'hausse'
+                ? 'bg-emerald-50 text-emerald-700'
+                : 'bg-rose-50 text-rose-700'
+            }`}>
+              {prediction.trend === 'hausse'
+                ? <TrendingUp size={16} />
+                : <TrendingDown size={16} />}
+              Tendance en {prediction.trend} ({prediction.trend_percentage}%)
+            </div>
+          )}
+        </div>
+
+        {predictionError ? (
+          <p className="text-sm text-gray-400 py-12 text-center">
+            Service de prédiction indisponible. Vérifiez que le service IA est démarré (port 8000).
+          </p>
+        ) : !prediction ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600" />
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={280}>
+            <ComposedChart data={caForecastChart}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} />
+              <Tooltip formatter={(v: number | string) => fmt(Number(v))} />
+              <Legend />
+              <Bar dataKey="actual" fill="#3b82f6" name="CA facturé (réel)" radius={[4, 4, 0, 0]} />
+              <Line
+                type="monotone"
+                dataKey="predicted"
+                stroke="#8b5cf6"
+                strokeWidth={2}
+                strokeDasharray="6 4"
+                dot={{ r: 4, fill: '#8b5cf6' }}
+                name="CA prévu (IA)"
+                connectNulls
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

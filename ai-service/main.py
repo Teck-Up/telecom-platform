@@ -8,6 +8,8 @@ from pydantic import BaseModel
 from typing import List, Optional
 from dotenv import load_dotenv
 
+load_dotenv()
+
 from document_parser import ParsedPaymentDocument, parse_payment_document
 from gemini_client import is_gemini_configured
 from gemini_vision import analyze_payment_image
@@ -17,7 +19,6 @@ from chat_intents import HELP_MENU, try_analytical_response
 from db import ping_db
 from text_to_sql import ANALYTICS_ERROR, answer_with_text_to_sql, looks_like_analytical_question
 
-load_dotenv()
 setup_logging()
 
 logger = logging.getLogger('telecom.api')

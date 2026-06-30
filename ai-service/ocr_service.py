@@ -11,6 +11,7 @@ OCR_ENGINE = os.getenv('OCR_ENGINE', 'pytesseract')
 
 BASE_DIR = Path(__file__).resolve().parent
 LOCAL_TESSDATA = BASE_DIR / 'tessdata'
+_APPLIED_TESSDATA_PREFIX: str | None = None
 
 WINDOWS_TESSERACT_PATHS = [
     r'C:\Program Files\Tesseract-OCR\tesseract.exe',
@@ -35,6 +36,79 @@ def resolve_tesseract_cmd() -> str | None:
     return None
 
 
+def _has_traineddata(directory: Path) -> bool:
+    return directory.is_dir() and any(directory.glob('*.traineddata'))
+
+
+def _sync_tessdata_to_runtime(source: Path) -> Path:
+    """
+    Copy language files to a short ASCII-only path on Windows.
+    Avoids failures when the project lives under OneDrive folders with
+    non-Latin characters (e.g. Arabic Desktop names).
+    """
+    if os.name != 'nt':
+        return source
+
+    runtime = Path(os.environ.get('LOCALAPPDATA', '')) / 'telecom-platform' / 'tessdata'
+    runtime.mkdir(parents=True, exist_ok=True)
+
+    for src in source.glob('*.traineddata'):
+        dst = runtime / src.name
+        if not dst.exists() or dst.stat().st_size != src.stat().st_size:
+            shutil.copy2(src, dst)
+
+    tesseract_cmd = resolve_tesseract_cmd()
+    if tesseract_cmd:
+        system = Path(tesseract_cmd).parent / 'tessdata'
+        for name in ('eng.traineddata', 'osd.traineddata'):
+            src = system / name
+            dst = runtime / name
+            if src.exists() and (not dst.exists() or dst.stat().st_size != src.stat().st_size):
+                shutil.copy2(src, dst)
+
+    return runtime
+
+
+def resolve_tessdata_dir() -> Path | None:
+    """Directory that directly contains *.traineddata files."""
+    env_dir = os.getenv('TESSDATA_DIR')
+    if env_dir:
+        path = Path(env_dir)
+        if _has_traineddata(path):
+            return path.resolve()
+
+    if _has_traineddata(LOCAL_TESSDATA):
+        return _sync_tessdata_to_runtime(LOCAL_TESSDATA.resolve())
+
+    tesseract_cmd = resolve_tesseract_cmd()
+    if tesseract_cmd:
+        system = Path(tesseract_cmd).parent / 'tessdata'
+        if _has_traineddata(system):
+            return system.resolve()
+
+    return None
+
+
+def apply_tessdata_env() -> Path | None:
+    """
+    Point TESSDATA_PREFIX at the folder that contains *.traineddata files.
+    Using the env var avoids breaking paths that contain spaces on Windows.
+    """
+    global _APPLIED_TESSDATA_PREFIX
+
+    tessdata_dir = resolve_tessdata_dir()
+    if not tessdata_dir:
+        return None
+
+    prefix = str(tessdata_dir)
+    if _APPLIED_TESSDATA_PREFIX != prefix:
+        os.environ['TESSDATA_PREFIX'] = prefix
+        _APPLIED_TESSDATA_PREFIX = prefix
+        logger.info('TESSDATA_PREFIX set | tessdata=%s', tessdata_dir)
+
+    return tessdata_dir
+
+
 def ensure_tesseract_configured() -> str:
     import pytesseract
 
@@ -52,9 +126,15 @@ def ensure_tesseract_configured() -> str:
 
 try:
     _CONFIGURED_TESSERACT = ensure_tesseract_configured()
-    logger.info('Tesseract ready | path=%s tessdata=%s', _CONFIGURED_TESSERACT, LOCAL_TESSDATA)
+    _CONFIGURED_TESSDATA = apply_tessdata_env()
+    logger.info(
+        'Tesseract ready | path=%s tessdata=%s',
+        _CONFIGURED_TESSERACT,
+        _CONFIGURED_TESSDATA,
+    )
 except RuntimeError as exc:
     _CONFIGURED_TESSERACT = None
+    _CONFIGURED_TESSDATA = None
     logger.error('Tesseract not configured at startup | %s', exc)
 
 
@@ -73,7 +153,8 @@ def _preprocess_image(image: Image.Image) -> Image.Image:
 
 
 def _available_ocr_langs() -> str:
-    files = list(LOCAL_TESSDATA.glob('*.traineddata')) if LOCAL_TESSDATA.exists() else []
+    tessdata_dir = resolve_tessdata_dir()
+    files = list(tessdata_dir.glob('*.traineddata')) if tessdata_dir else []
     codes = []
     for code in ('fra', 'eng'):
         if any(f.stem == code for f in files):
@@ -82,16 +163,22 @@ def _available_ocr_langs() -> str:
 
 
 def _tesseract_config(psm: int = 6) -> str:
-    parts = [f'--psm {psm}']
-    if LOCAL_TESSDATA.exists() and list(LOCAL_TESSDATA.glob('*.traineddata')):
-        parts.insert(0, f'--tessdata-dir {LOCAL_TESSDATA}')
-    return ' '.join(parts)
+    # Do not pass --tessdata-dir here: unquoted paths with spaces break on Windows.
+    # apply_tessdata_env() sets TESSDATA_PREFIX instead.
+    return f'--psm {psm}'
 
 
 def _run_ocr(processed: Image.Image, ocr_lang: str, psm: int) -> str:
     import pytesseract
 
     ensure_tesseract_configured()
+    tessdata_dir = apply_tessdata_env()
+    if not tessdata_dir:
+        raise RuntimeError(
+            'Aucun dossier tessdata trouvé. '
+            'Placez eng.traineddata et fra.traineddata dans ai-service/tessdata/'
+        )
+
     config = _tesseract_config(psm)
     return pytesseract.image_to_string(processed, lang=ocr_lang, config=config)
 
