@@ -52,21 +52,27 @@ async def clear_chat_history():
 
 # --- Endpoints Prédictions (IA) ---
 @router.post("/predict")
-async def predict_revenue(request: PredictionRequest):
-    """Générer des prédictions de revenus futurs"""
+async def predict_revenue(request: Request):
     try:
-        # On tente de charger le modèle depuis le disque
-        if not predictor.load_model():
-            return {"status": "error", "message": "Modèle non entraîné. Veuillez lancer l'entraînement."}
+        # 1. On récupère les données JSON envoyées par React
+        data = await request.json()
+        periods = data.get('periods', 30)
+        granularity = data.get('granularity', 'day')
 
-        # On génère les prédictions
-        freq = 'D' if request.granularity == 'day' else 'MS'
-        forecast = predictor.predict(periods=request.periods, freq=freq)
+        # 2. On appelle notre méthode "intelligente" dans predictor.py
+        # Elle gère déjà la fréquence (D, MS, YS) et le format JSON
+        predictions = predictor.predict(periods=periods, granularity=granularity)
 
-        # Conversion du résultat Pandas en JSON lisible
-        results = forecast.to_dict(orient="records")
-        return {"status": "success", "granularity": request.granularity, "data": results}
+        # 3. On renvoie le résultat au format attendu par ton Frontend
+        return {
+            "status": "success",
+            "granularity": granularity,
+            "data": predictions
+        }
+
     except Exception as e:
+        # Si une erreur survient (ex: modèle non trouvé), on renvoie une erreur 500 propre
+        print(f"ERREUR PREDICTION: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -95,3 +101,7 @@ async def get_dashboard_summary():
 async def get_revenue_history(granularity: str = "day", start_date: str = None, end_date: str = None):
     """Historique des revenus pour les graphiques"""
     return analytics_repo.get_revenue_history(start_date, end_date, granularity)
+
+@router.get("/dashboard/invoice-distribution")
+async def get_invoice_distribution( start_date: str, end_date: str):
+    return analytics_repo.get_invoice_distribution(start_date, end_date)

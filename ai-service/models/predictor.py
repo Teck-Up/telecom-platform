@@ -54,24 +54,40 @@ class RevenuePredictor:
         print("⚠️ Aucun modèle trouvé sur le disque. Un entraînement est nécessaire.")
         return False
 
-    def predict(self, periods=30, freq='D'):
+    def predict(self, periods=30, granularity='day'):
         """
         Génère des prédictions pour le futur.
-        periods: nombre d'unités de temps
-        freq: 'D' pour jours, 'M' pour mois
+        - periods: nombre d'unités de temps à prédire
+        - granularity: 'day', 'month' ou 'year'
         """
+        # 1. Mapping des fréquences pour Facebook Prophet
+        # 'D' = Day, 'MS' = Month Start, 'YS' = Year Start
+        freq_map = {
+            'day': 'D',
+            'month': 'MS',
+            'year': 'YS'
+        }
+        target_freq = freq_map.get(granularity, 'D')
+
+        # 2. Vérification du modèle
         if not self.model:
             if not self.load_model():
                 raise Exception("Le modèle n'est pas entraîné et aucun fichier de sauvegarde n'a été trouvé.")
 
-        # Création des dates futures
-        future = self.model.make_future_dataframe(periods=periods, freq=freq)
-
-        # Calcul de la prédiction
+        # 3. Création du DataFrame futur avec la bonne fréquence
+        # On s'assure que periods est bien un entier
+        future = self.model.make_future_dataframe(periods=int(periods), freq=target_freq)
+        print("future=====> ",future)
+        # 4. Calcul de la prédiction
         forecast = self.model.predict(future)
 
-        # On retourne les colonnes essentielles : date, prédiction, min, max
-        return forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail(periods)
+        # 5. Sélection des colonnes essentielles
+        # ds: date, yhat: moyenne, yhat_lower/upper: intervalle de confiance
+        result_df = forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail(int(periods))
+
+        # 6. IMPORTANT : Conversion en format JSON (liste de dictionnaires)
+        # Sans cela, FastAPI renvoie une erreur 500
+        return result_df.to_dict(orient='records')
 
 
 # Petit script de test interne

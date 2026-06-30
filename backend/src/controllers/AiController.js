@@ -65,6 +65,17 @@ class AiController {
             res.status(500).json({ error: error.message });
         }
     }
+
+    async get_invoice_distribution(req, res) {
+        try {
+            const {start_date, end_date} = req.query;
+            const result = await AiService.get_invoice_distribution(start_date, end_date);
+            res.json(result);
+        } catch (error) {
+            console.error('Erreur dans AiController.get_invoice_distribution:', error.message);
+            res.status(500).json({ error: error.message });
+        }
+    }
 }
 
 module.exports = new AiController();

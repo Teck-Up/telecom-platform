@@ -54,7 +54,7 @@ export default function ClientsPage() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
             <tr>
-              <th className="px-4 py-3 text-left">Client</th>
+              <th className="px-4 py-3 text-left">Client </th>
               <th className="px-4 py-3 text-left">Entreprise</th>
               <th className="px-4 py-3 text-left">Contrat</th>
               <th className="px-4 py-3 text-right">Factures</th>
@@ -66,7 +66,7 @@ export default function ClientsPage() {
             {clients.map(c => (
               <tr key={c.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3">
-                  <div className="font-medium">{c.name}</div>
+                  <div className="font-medium">{c.user.name}</div>
                   <div className="text-gray-400 text-xs">{c.email}</div>
                 </td>
                 <td className="px-4 py-3 text-gray-600">{c.company_name || '—'}</td>

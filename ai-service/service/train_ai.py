@@ -12,7 +12,7 @@ def run_training():
     data = repo.get_revenue_history(granularity='day')
 
     if not data:
-        print("❌ Erreur : Aucune donnée trouvée dans la vue view_daily_revenue.")
+        print("❌ Erreur : Aucune donnée trouvée dans la vue view_revenue.")
         return
 
     # 2. Convertir en DataFrame Pandas (format attendu par Prophet)

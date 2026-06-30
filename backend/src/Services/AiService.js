@@ -86,6 +86,17 @@ class AiService {
         }
     }
 
+    async get_invoice_distribution(start_date, end_date) {
+        try {
+            const params = {  start_date: start_date, end_date: end_date };
+            const response = await axios.get(`${AI_SERVICE_URL}/dashboard/invoice-distribution`,{ params });
+            return response.data;
+        } catch (error) {
+            console.error("Erreur AiService (Invoice Distribution):", error.message);
+            throw new Error("Erreur lors de la récupération de la répartition des factures.");
+        }
+    }
+
 }
 
 module.exports = new AiService();

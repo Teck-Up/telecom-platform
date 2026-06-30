@@ -6,7 +6,7 @@ class AnalyticsRepository:
         self.db = DatabaseConnection()
 
     def get_revenue_history(self, start_date=None, end_date=None, granularity='day'):
-        # On définit le format de regroupement
+        # 1. On définit le format de regroupement
         formats = {
             'day': 'ds',
             'month': "DATE_FORMAT(ds, '%Y-%m-01')",
@@ -14,11 +14,20 @@ class AnalyticsRepository:
         }
         group_by = formats.get(granularity, 'ds')
 
-        # Requête de base sur la VUE
-        query = f"SELECT {group_by} as period, SUM(y) as revenue FROM view_daily_revenue"
+        # 2. On sélectionne TOUTES les colonnes de la vue
+        # Note : 'y' est utilisé par l'IA, 'revenue/paid/unpaid' par le Dashboard
+        query = f"""
+            SELECT 
+                {group_by} as period, 
+                SUM(y) as y, 
+                SUM(y) as revenue, 
+                SUM(paid) as paid, 
+                SUM(unpaid) as unpaid 
+            FROM view_revenue
+        """
         params = []
 
-        # Ajout des filtres de dates dynamiques
+        # 3. Filtres de dates
         if start_date or end_date:
             query += " WHERE"
             if start_date:
@@ -30,7 +39,8 @@ class AnalyticsRepository:
                 query += " ds <= %s"
                 params.append(end_date)
 
-        query += f" GROUP BY period ORDER BY period ASC"
+        query += " GROUP BY period ORDER BY period ASC"
+
         return self.db.execute_query(query, tuple(params))
 
     def get_dashboard_summary(self): # Assure-toi que le nom est EXACTEMENT celui-ci
@@ -43,4 +53,20 @@ class AnalyticsRepository:
         """
         result = self.db.execute_query(query)
         return result[0] if result else {}
+
+    def get_invoice_distribution(self, start_date, end_date):
+        # On utilise des %s pour la sécurité
+        query = """
+            SELECT status, COUNT(*) as count 
+            FROM invoices 
+            WHERE issue_date BETWEEN %s AND %s 
+            GROUP BY status
+        """
+
+        # On passe les paramètres dans un tuple
+        params = (start_date, end_date)
+
+        return self.db.execute_query(query, params)
+
+
 

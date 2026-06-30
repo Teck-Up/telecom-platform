@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 import api from '../services/api'
 import { TrendingUp, Users, FileText, AlertTriangle } from 'lucide-react'
+import StatsOverview from "../components/dashboard/StatsOverview.tsx";
+import RevenueEvolutionChart from "../components/dashboard/RevenueEvolutionChart.tsx";
+import InvoiceDistributionChart from "../components/dashboard/InvoiceDistributionChart.tsx";
+import RevenuePredictionChart from "../components/dashboard/RevenuePredictionChart.tsx";
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
 const STATUS_LABELS: Record<string, string> = {
@@ -25,53 +29,23 @@ export default function Dashboard() {
       <h1 className="text-2xl font-bold text-gray-900">Tableau de bord</h1>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Chiffre d\'Affaires', value: fmt(stats?.totals?.total_ca || 0), icon: TrendingUp, color: 'bg-blue-500' },
-          { label: 'Impayés', value: fmt(stats?.totals?.total_unpaid || 0), icon: AlertTriangle, color: 'bg-red-500' },
-          { label: 'Clients Actifs', value: stats?.totals?.total_clients || 0, icon: Users, color: 'bg-green-500' },
-          { label: 'Factures en retard', value: stats?.totals?.overdue_count || 0, icon: FileText, color: 'bg-orange-500' },
-        ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="bg-white rounded-xl shadow-sm p-5 flex items-center gap-4">
-            <div className={`${color} p-3 rounded-lg text-white`}><Icon size={22} /></div>
-            <div>
-              <p className="text-sm text-gray-500">{label}</p>
-              <p className="text-xl font-bold text-gray-900">{value}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-
+<StatsOverview/>
+      <RevenueEvolutionChart />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Monthly CA Chart */}
+
+
+
+
+
+
         <div className="bg-white rounded-xl shadow-sm p-5">
-          <h2 className="text-lg font-semibold mb-4">Chiffre d'Affaires Mensuel</h2>
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={stats?.monthlyCA || []}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip formatter={(v: any) => fmt(Number(v))} />
-              <Bar dataKey="ca" fill="#3b82f6" name="CA" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="paid" fill="#10b981" name="Encaissé" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <RevenuePredictionChart/>
         </div>
 
         {/* Status distribution */}
         <div className="bg-white rounded-xl shadow-sm p-5">
-          <h2 className="text-lg font-semibold mb-4">Répartition des Factures</h2>
-          <ResponsiveContainer width="100%" height={240}>
-            <PieChart>
-              <Pie data={stats?.statusDist || []} dataKey="count" nameKey="status" cx="50%" cy="50%" outerRadius={80}
-                label={({ status, count }) => `${STATUS_LABELS[status] || status}: ${count}`}>
-                {(stats?.statusDist || []).map((_: any, i: number) => (
-                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
+          <InvoiceDistributionChart />
+
         </div>
       </div>
 
